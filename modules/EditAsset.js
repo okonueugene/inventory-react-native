@@ -21,11 +21,11 @@ import {Camera} from 'react-native-vision-camera';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
+
 const EditAsset = () => {
-  const [qrValue, setQrValue] = useState('');
+  const [scanned, setScanned] = useState(false);
   const [light, setLight] = useState(false);
   const device = useCameraDevice('back');
-  const [showCamera, setShowCamera] = useState(false);
   const [assetDetails, setAssetDetails] = useState({
     name: '',
     category_id: '',
@@ -40,10 +40,7 @@ const EditAsset = () => {
     image: null,
     coordinates: null,
   });
-
-  const [categories, setCategories] = useState([]); // Example categories
-  const [employees, setEmployees] = useState([]); // Example employees
-
+  
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -69,6 +66,8 @@ const EditAsset = () => {
       }
     }
   };
+  
+  
 
   useEffect(() => {
     requestPermissions();
@@ -76,26 +75,20 @@ const EditAsset = () => {
 
   const onCodeScanned = useCallback(codes => {
     console.log('Scanned codes:', codes);
+   // Check if `codes` is an array and has at least one item
+   if (Array.isArray(codes) && codes.length > 0) {
+    const value = codes[0]?.value; // Access the `value` of the first code
 
-    // Check if `codes` is an array and has at least one item
-    if (Array.isArray(codes) && codes.length > 0) {
-      const value = codes[0]?.value; // Access the `value` of the first code
+    if (value) {
+      Vibration.vibrate(50);
+      setScanned(true);
+      getCoordinates();
+      getAssetDetails(value);
 
-      if (value) {
-        Vibration.vibrate(50);
-        setQrValue(value);
-        setAssetDetails(prev => ({
-          ...prev,
-          code: value,
-        }));
-        getCoordinates();
-        setShowCamera(false);
-      }
-    } else {
-      console.warn('No valid codes scanned');
     }
+  }
   }, []);
-
+  
   const getCoordinates = async () => {
     Geolocation.getCurrentPosition(position => {
       const {latitude, longitude} = position.coords;
@@ -156,145 +149,56 @@ const EditAsset = () => {
     }));
   };
 
-  const handleSubmit = async () => {
-    // Extract asset details
-    const {
-      name,
-      category_id,
-      employee_id,
-      description,
-      code,
-      serial_number,
-      status,
-      purchase_date,
-      warranty_date,
-      decommission_date,
-      image,
-      coordinates,
-    } = assetDetails;
-    console.log(assetDetails);
 
-    // Validate form fields
-    if (!name || !category_id || !employee_id || !code || !serial_number) {
-      switch (true) {
-        case !name:
-          Alert.alert('Validation Error', 'Name is required');
-          break;
-        case !category_id:
-          Alert.alert('Validation Error', 'Category is required');
-          break;
-        case !employee_id:
-          Alert.alert('Validation Error', 'Employee is required');
-          break;
-        case !code:
-          Alert.alert('Validation Error', 'Code is required');
-          break;
-        case !serial_number:
-          Alert.alert('Validation Error', 'Serial Number is required');
-          break;
-        default:
-          break;
-      }
-      return;
-    }
-
+  const getAssetDetails = async (code) => {
     try {
       const token = await AsyncStorage.getItem('token');
-      // Send data to your backend
-      const response = await fetch(
-        'https://test.tokenlessreport.optitech.co.ke/api/v1/assets',
+      const response = await axios.get(
+        'https://test.tokenlessreport.optitech.co.ke/api/v1/assets/' + code,
         {
-          method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            name,
-            category_id,
-            employee_id,
-            description,
-            code,
-            serial_number,
-            status,
-            purchase_date,
-            warranty_date,
-            decommission_date,
-            image,
-            coordinates,
-          }),
         },
       );
-
-      // Parse response JSON
-      const responseData = await response.json();
-
-      // Check if submission was successful
-      if (response.status === 201) {
-        // Display success message
-        Alert.alert('Asset Details Submitted', JSON.stringify(assetDetails));
-
-        // Reset form
-        setAssetDetails({
-          name: '',
-          category_id: '',
-          employee_id: '',
-          description: '',
-          code: '',
-          serial_number: '',
-          status: 'available',
-          purchase_date: '',
-          warranty_date: '',
-          decommission_date: '',
-          image: null,
-          coordinates: null,
-        });
-
-        setQrValue('');
-        setShowCamera(false);
-      } else if (response.status === 400) {
-        // Display validation error messages
-        const errorMessages = Object.values(responseData).join('\n');
-        Alert.alert('Validation Errors', errorMessages);
-        console.log('Validation errors:', responseData);
-      } else {
-        // Display generic error message for other statuses
-        Alert.alert('Failed to submit asset details');
-        console.log('Submission failed:', responseData);
-        console.log('Response status:', response.status);
-      }
+      console.log('Asset details:', response.data);
+      setAssetDetails(response.data);
     } catch (error) {
-      // Display network or other error
-      Alert.alert('Network error', 'Failed to connect to the server');
-      console.log('Network error:', error);
-      console.log('Response status:', response.status);
+      console.error(error);
+      console.log(response.data);
     }
-  };
+  }
 
-  //Fetch categories
-  const fetchCategories = async () => {
-    const response = await axios.get(
-      'https://test.tokenlessreport.optitech.co.ke/api/v1/categories',
+  const updateAsset = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const response = await axios.put(
+        'https://test.tokenlessreport.optitech.co.ke/api/v1/assets/' + assetDetails.code,
+        assetDetails,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      console.log('Asset updated:', response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  if(!scanned && device) {
+    return (
+        <Camera
+        style={StyleSheet.absoluteFill}
+        device={device}
+        isActive={true}
+        codeScanner={codeScanner}
+        light={light}
+        enableZoomGesture={true}
+      />
     );
-    const data = response.data;
-    console.log(data);
-    setCategories(data);
-  };
-
-  //Fetch employees
-  const fetchEmployees = async () => {
-    const response = await axios.get(
-      'https://test.tokenlessreport.optitech.co.ke/api/v1/employees',
-    );
-    const data = response.data;
-    console.log(data);
-    setEmployees(data);
-  };
-
-  useEffect(() => {
-    fetchCategories();
-    fetchEmployees();
-  }, []);
-
+  }
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -302,135 +206,61 @@ const EditAsset = () => {
       <Header />
       </View>
       {/* Title */}
-      <Text style={styles.title}>Add New Asset</Text>
-      {/* Button to show/hide CameraView */}
-      {showCamera && device && (
-        <Camera
-          style={StyleSheet.absoluteFill}
-          device={device}
-          isActive={true}
-          codeScanner={codeScanner}
-          light={light}
-          enableZoomGesture={true}
-        />
-      )}
-
-      <View style={styles.focusFrame}>
-        <Text style={styles.instructions}>
-          Align the barcode within the frame to scan
-        </Text>
-      </View>
+      <Text style={styles.title}>Edit Asset</Text>
       <View
-        style={[styles.formContainer, showCamera && styles.dimmedBackground]}>
+        style={[styles.formContainer , {flex: 1}]}>
         <ScrollView
           style={styles.formContainer}
           contentContainerStyle={{flexGrow: 1, justifyContent: 'center', paddingBottom: 20}}>
-          <TouchableOpacity
-            onPress={() => setShowCamera(!showCamera)}
-            style={styles.toggleButton}>
-            <Text style={(style = {color: 'white', textAlign: 'center'})}>
-              {showCamera ? 'Hide Scanner' : 'Scan Barcode/QR Code'}
-            </Text>
-          </TouchableOpacity>
           <TextInput
             placeholder="Name"
             style={styles.input}
+            value={assetDetails.name}
+            editable={assetDetails.name ? false : true}
             onChangeText={text => handleInputChange('name', text)}
             placeholderTextColor={'gray'}
           />
-          {/* Category Picker */}
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: 'gray',
-              borderRadius: 1,
-              marginBottom: 10,
-              width: '90%',
-              alignSelf: 'center',
-            }}>
-            <Picker
-              selectedValue={assetDetails.category_id}
-              onValueChange={itemValue =>
-                handleInputChange('category_id', itemValue)
-              }
-              style={styles.picker}>
-              <Picker.Item label="Select Category" value="" color="gray" />
-              {categories.map(category => (
-                <Picker.Item
-                  key={category.id}
-                  label={category.name}
-                  value={category.id}
-                  color={
-                    assetDetails.category_id === category.id ? 'black' : 'gray'
-                  }
-                />
-              ))}
-            </Picker>
-          </View>
-
-          {/* Employee Picker */}
-          <View
-            style={{
-              borderWidth: 1,
-              borderColor: 'gray',
-              borderRadius: 1,
-              marginBottom: 10,
-              width: '90%',
-              alignSelf: 'center',
-            }}>
-            <Picker
-              selectedValue={assetDetails.employee_id}
-              onValueChange={itemValue =>
-                handleInputChange('employee_id', itemValue)
-              }
-              style={styles.picker}>
-              <Picker.Item label="Select Employee" value="" color="gray" />
-              {employees.map(employee => (
-                <Picker.Item
-                  key={employee.id}
-                  label={employee.name}
-                  value={employee.id}
-                  color={
-                    assetDetails.employee_id === employee.id ? 'black' : 'gray'
-                  }
-                />
-              ))}
-            </Picker>
-          </View>
-
+  
           <TextInput
             placeholder="Description"
+            value={assetDetails.description || ''}
             style={styles.input}
             onChangeText={text => handleInputChange('description', text)}
             placeholderTextColor={'gray'}
           />
           <TextInput
             placeholder="Code"
+            value={assetDetails.code}
             placeholderTextColor={'gray'}
             style={styles.input}
-            value={qrValue}
             editable={false}
           />
           <TextInput
             placeholder="Serial Number"
+            value={assetDetails.serial_number || ''}
             style={styles.input}
             onChangeText={text => handleInputChange('serial_number', text)}
             placeholderTextColor={'gray'}
+            editable={assetDetails.serial_number ? false : true}
           />
           <TextInput
             placeholder="Purchase Date (YYYY-MM-DD)"
+            value={assetDetails.purchase_date || ''}
             style={styles.input}
             onChangeText={text => handleInputChange('purchase_date', text)}
             placeholderTextColor={'gray'}
+            editable={assetDetails.purchase_date ? false : true}
           />
           <TextInput
             placeholder="Warranty Date (YYYY-MM-DD)"
+            value={assetDetails.warranty_date || ''}
             style={styles.input}
             onChangeText={text => handleInputChange('warranty_date', text)}
             placeholderTextColor={'gray'}
           />
           <TextInput
             placeholder="Decommission Date (YYYY-MM-DD)"
+            value={assetDetails.decommission_date || ''}
             style={styles.input}
             onChangeText={text => handleInputChange('decommission_date', text)}
             placeholderTextColor={'gray'}
@@ -439,7 +269,7 @@ const EditAsset = () => {
             <Text style={styles.buttonText}>Pick Image</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={handleSubmit} style={styles.submitButton}>
+          <TouchableOpacity onPress={updateAsset} style={styles.submitButton}>
             <Text style={styles.buttonText}>Submit Asset Details</Text>
           </TouchableOpacity>
         </ScrollView>

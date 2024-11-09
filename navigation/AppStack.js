@@ -1,7 +1,8 @@
 import React, { useState, useRef } from "react";
 import { createStackNavigator } from "@react-navigation/stack";
 import { TouchableOpacity,
-    DrawerLayoutAndroid
+    DrawerLayoutAndroid,
+    Text
 } from "react-native";
 import Login from "../modules/Login";
 import Dashboard from "../modules/Dashboard";
@@ -20,6 +21,7 @@ const AppStack = () => {
 
     return (
         <DrawerLayoutAndroid
+            initialRouteName="Dashboard"
             ref={drawer}
             drawerWidth={300}
             drawerPosition="left"
@@ -30,7 +32,6 @@ const AppStack = () => {
             )}
         >
             <Stack.Navigator>
-                <Stack.Screen name="Login" component={Login} options={{ headerShown: false }} />
                 <Stack.Screen name="Dashboard" component={Dashboard} options={{ headerShown: false }} />
                 <Stack.Screen name="AddAsset" component={AddAsset} options={{ headerShown: false }} />
                 <Stack.Screen name="EditAsset" component={EditAsset} options={{ headerShown: false }} />

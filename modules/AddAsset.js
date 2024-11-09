@@ -18,6 +18,8 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {useCameraDevice, useCodeScanner} from 'react-native-vision-camera';
 import {Camera} from 'react-native-vision-camera';
+import DateTimePicker from 'react-native-ui-datepicker';
+import dayjs from 'dayjs';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -26,6 +28,17 @@ const AddAsset = () => {
   const [light, setLight] = useState(false);
   const device = useCameraDevice('back');
   const [showCamera, setShowCamera] = useState(false);
+  const [purchaseDate, setPurchaseDate] = useState(
+    dayjs().format('YYYY-MM-DD'),
+  );
+  const [warrantyDate, setWarrantyDate] = useState(
+    dayjs().format('YYYY-MM-DD'),
+  );
+  const [decommissionDate, setDecommissionDate] = useState(
+    dayjs().format('YYYY-MM-DD'),
+  );
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [activeField, setActiveField] = useState('');
   const [assetDetails, setAssetDetails] = useState({
     name: '',
     category_id: '',
@@ -34,9 +47,6 @@ const AddAsset = () => {
     code: '',
     serial_number: '',
     status: 'available',
-    purchase_date: '',
-    warranty_date: '',
-    decommission_date: '',
     image: null,
     coordinates: null,
   });
@@ -294,12 +304,26 @@ const AddAsset = () => {
     fetchCategories();
     fetchEmployees();
   }, []);
+  const handleDateChange = date => {
+    if (activeField === 'purchase') {
+      setPurchaseDate(date);
+    } else if (activeField === 'warranty') {
+      setWarrantyDate(date);
+    } else if (activeField === 'decommission') {
+      setDecommissionDate(date);
+    }
+    setShowDatePicker(false); // Close the DatePicker after selection
+  };
 
+  const openDatePicker = field => {
+    setActiveField(field);
+    setShowDatePicker(true); // Open the DatePicker
+  };
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-      <Header />
+        <Header />
       </View>
       {/* Title */}
       <Text style={styles.title}>Add New Asset</Text>
@@ -324,7 +348,11 @@ const AddAsset = () => {
         style={[styles.formContainer, showCamera && styles.dimmedBackground]}>
         <ScrollView
           style={styles.formContainer}
-          contentContainerStyle={{flexGrow: 1, justifyContent: 'center', paddingBottom: 20}}>
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: 'center',
+            paddingBottom: 20,
+          }}>
           <TouchableOpacity
             onPress={() => setShowCamera(!showCamera)}
             style={styles.toggleButton}>
@@ -417,24 +445,43 @@ const AddAsset = () => {
             onChangeText={text => handleInputChange('serial_number', text)}
             placeholderTextColor={'gray'}
           />
-          <TextInput
-            placeholder="Purchase Date (YYYY-MM-DD)"
-            style={styles.input}
-            onChangeText={text => handleInputChange('purchase_date', text)}
-            placeholderTextColor={'gray'}
-          />
-          <TextInput
-            placeholder="Warranty Date (YYYY-MM-DD)"
-            style={styles.input}
-            onChangeText={text => handleInputChange('warranty_date', text)}
-            placeholderTextColor={'gray'}
-          />
-          <TextInput
-            placeholder="Decommission Date (YYYY-MM-DD)"
-            style={styles.input}
-            onChangeText={text => handleInputChange('decommission_date', text)}
-            placeholderTextColor={'gray'}
-          />
+          <TouchableOpacity
+            onPress={() => openDatePicker('purchase')}
+            style={styles.dateInput}>
+            <Text style={styles.buttonText}>Select Purchase Date</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openDatePicker('warranty')}
+            style={styles.dateInput}>
+            <Text style={styles.buttonText}>Select Warranty Date</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openDatePicker('decommission')}
+            style={styles.dateInput}>
+            <Text style={styles.buttonText}>Select Decommission Date</Text>
+          </TouchableOpacity>
+
+          {showDatePicker && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="single"
+                date={
+                  activeField === 'purchase'
+                    ? purchaseDate
+                    : activeField === 'warranty'
+                    ? warrantyDate
+                    : decommissionDate
+                }
+                onChange={params => handleDateChange(params.date)}
+                calendarTextStyle={{color: 'black'}}
+                headerTextContainerStyle={{color: 'black'}}
+                headerStyle={{backgroundColor: 'white'}}
+                headerTextColor={'black'}
+              />
+            </View>
+          )}
           <TouchableOpacity onPress={pickImage} style={styles.submitButton}>
             <Text style={styles.buttonText}>Pick Image</Text>
           </TouchableOpacity>
@@ -446,7 +493,7 @@ const AddAsset = () => {
         {/* Footer */}
         <View style={styles.footer}>
           <Footer />
-          </View>
+        </View>
       </View>
     </View>
   );
@@ -561,6 +608,25 @@ const styles = StyleSheet.create({
     position: 'relative',
     bottom: 0,
     alignItems: 'center',
+  },
+  dateInput: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    width: '90%',
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  datePickerContainer: {
+    position: 'absolute',
+    top: '30%', // Adjust as necessary to center vertically
+    left: '10%', // Adjust as necessary to center horizontally
+    width: '80%', // Adjust width as needed
+    zIndex: 1000, // Ensure it's above other components
   },
 });
 

@@ -48,7 +48,7 @@ const AppContainer = () => {
 
   return (
     <NavigationContainer>
-      {state.isAuthenticated ? <AppStack /> : <AuthStack />}
+      <AppStack /> 
     </NavigationContainer>
   );
 };

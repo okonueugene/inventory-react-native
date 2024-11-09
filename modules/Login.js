@@ -50,6 +50,9 @@ const LoginScreen = ({navigation}) => {
 
         // Show success message
         setSuccessMessage('Login successful');
+
+        // Navigate to the dashboard
+        navigation.navigate('Dashboard');
       } else {
         setErrorMessage('Invalid credentials');
       }

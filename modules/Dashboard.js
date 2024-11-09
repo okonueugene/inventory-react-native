@@ -8,6 +8,7 @@ import {
   FlatList,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
+import Header from '../components/Header';
 import Footer from '../components/Footer';
 import { useNavigation } from '@react-navigation/native';
 
@@ -21,11 +22,6 @@ const Dashboard = () => {
   const drawerRef = useRef(null);
   const navigation = useNavigation();  // Use navigation for screen transitions
 
-  const closeDrawer = () => {
-    drawerRef.current.closeDrawer();
-  };
-
-  const navigationView = () => <MenuScreen closeDrawer={closeDrawer} />;
 
   const handlePress = (item) => {
     // Navigate to the corresponding screen using navigation.navigate
@@ -41,29 +37,31 @@ const Dashboard = () => {
 
   return (
     <DrawerLayoutAndroid
+    renderNavigationView={() => (
+        <TouchableOpacity onPress={() => drawerRef.current.closeDrawer()}>
+            <Text>Close Drawer</Text>
+        </TouchableOpacity>
+        )
+    }
       ref={drawerRef}
       drawerWidth={200}
       drawerPosition="left"
-      renderNavigationView={navigationView}>
+      >
       <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            textAlign: 'center',
-            fontSize: 20,
-            margin: 10,
-            color: '#007bff',
-            fontWeight: 'bold',
-          }}>
-            Dashboard   
-        </Text>
+  {/* Header */}
+  <View style={styles.header}>
+      <Header />
+      </View>
+      {/* Title */}
+      <Text style={styles.title}>Dashboard</Text>
         <FlatList
           data={data}
           renderItem={renderItem}
           keyExtractor={(item) => item.id}
-          numColumns={3}
+          numRows={3}
           contentContainerStyle={styles.gridContainer}
         />
-        <View>
+        <View style={styles.footer}>
           <Footer />
         </View>
       </View>
@@ -92,6 +90,31 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
   },
+  footer: {
+    height: 60,
+    backgroundColor: '#4A90E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    position: 'relative',
+    bottom: 0,
+    alignItems: 'center',
+  },
+  header: {
+    height: 60,
+    backgroundColor: '#4A90E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  title: {
+    fontSize: 24,
+    textAlign: 'center',
+    fontWeight: 'bold',
+    marginVertical: 6,
+    color: '#4A90E2',
+  },
+
 });
 
 export default Dashboard;
