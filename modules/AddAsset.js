@@ -168,24 +168,28 @@ const AddAsset = () => {
 
   const handleSubmit = async () => {
     // Extract asset details
+
     const {
       name,
       category_id,
       employee_id,
-      description,
       code,
       serial_number,
+      description,
+
       status,
-      purchase_date,
-      warranty_date,
-      decommission_date,
+
       image,
+
       coordinates,
     } = assetDetails;
-    console.log(assetDetails);
+
+
+
+   
 
     // Validate form fields
-    if (!name || !category_id || !employee_id || !code || !serial_number) {
+    if (!name || !category_id ||!code) {
       switch (true) {
         case !name:
           Alert.alert('Validation Error', 'Name is required');
@@ -193,20 +197,16 @@ const AddAsset = () => {
         case !category_id:
           Alert.alert('Validation Error', 'Category is required');
           break;
-        case !employee_id:
-          Alert.alert('Validation Error', 'Employee is required');
-          break;
         case !code:
           Alert.alert('Validation Error', 'Code is required');
           break;
-        case !serial_number:
-          Alert.alert('Validation Error', 'Serial Number is required');
-          break;
         default:
-          break;
+          Alert.alert('Validation Error', 'All fields are required');
       }
       return;
     }
+
+
 
     try {
       const token = await AsyncStorage.getItem('token');
@@ -226,15 +226,14 @@ const AddAsset = () => {
             code,
             serial_number,
             status,
-            purchase_date,
-            warranty_date,
-            decommission_date,
+            purchase_date: purchaseDate,
+            warranty_date: warrantyDate,
+            decommission_date: decommissionDate,
             image,
             coordinates,
           }),
         },
       );
-
       // Parse response JSON
       const responseData = await response.json();
 
@@ -304,21 +303,23 @@ const AddAsset = () => {
     fetchCategories();
     fetchEmployees();
   }, []);
+
   const handleDateChange = date => {
     if (activeField === 'purchase') {
-      setPurchaseDate(date);
+      setPurchaseDate(dayjs(date).format('YYYY-MM-DD'));
     } else if (activeField === 'warranty') {
-      setWarrantyDate(date);
+      setWarrantyDate(dayjs(date).format('YYYY-MM-DD'));
     } else if (activeField === 'decommission') {
-      setDecommissionDate(date);
+      setDecommissionDate(dayjs(date).format('YYYY-MM-DD'));
     }
-    setShowDatePicker(false); // Close the DatePicker after selection
+    setShowDatePicker(false); // Close DatePicker after selection
   };
 
   const openDatePicker = field => {
     setActiveField(field);
-    setShowDatePicker(true); // Open the DatePicker
+    setShowDatePicker(true); // Open DatePicker
   };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -445,43 +446,45 @@ const AddAsset = () => {
             onChangeText={text => handleInputChange('serial_number', text)}
             placeholderTextColor={'gray'}
           />
-          <TouchableOpacity
-            onPress={() => openDatePicker('purchase')}
-            style={styles.dateInput}>
-            <Text style={styles.buttonText}>Select Purchase Date</Text>
-          </TouchableOpacity>
+         <TouchableOpacity
+          onPress={() => openDatePicker('purchase')}
+          style={styles.dateInput}>
+          <Text style={styles.buttonText}>Select Purchase Date</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => openDatePicker('warranty')}
-            style={styles.dateInput}>
-            <Text style={styles.buttonText}>Select Warranty Date</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => openDatePicker('warranty')}
+          style={styles.dateInput}>
+          <Text style={styles.buttonText}>Select Warranty Date</Text>
+        </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => openDatePicker('decommission')}
-            style={styles.dateInput}>
-            <Text style={styles.buttonText}>Select Decommission Date</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => openDatePicker('decommission')}
+          style={styles.dateInput}>
+          <Text style={styles.buttonText}>Select Decommission Date</Text>
+        </TouchableOpacity>
 
-          {showDatePicker && (
-            <View style={styles.datePickerContainer}>
-              <DateTimePicker
-                mode="single"
-                date={
-                  activeField === 'purchase'
-                    ? purchaseDate
-                    : activeField === 'warranty'
-                    ? warrantyDate
-                    : decommissionDate
-                }
-                onChange={params => handleDateChange(params.date)}
-                calendarTextStyle={{color: 'black'}}
-                headerTextContainerStyle={{color: 'black'}}
-                headerStyle={{backgroundColor: 'white'}}
-                headerTextColor={'black'}
-              />
-            </View>
-          )}
+        {/* Show DateTimePicker */}
+        {showDatePicker && (
+          <View style={styles.datePickerContainer}>
+            <DateTimePicker
+              mode="single"
+              date={
+                activeField === 'purchase'
+                  ? purchaseDate
+                  : activeField === 'warranty'
+                  ? warrantyDate
+                  : decommissionDate
+              }
+              onChange={params => handleDateChange(params.date)}
+              calendarTextStyle={{color: 'black'}}
+              headerTextContainerStyle={{color: 'black'}}
+              headerStyle={{backgroundColor: 'white'}}
+              headerTextColor={'black'}
+            />
+          </View>
+        )}
+
           <TouchableOpacity onPress={pickImage} style={styles.submitButton}>
             <Text style={styles.buttonText}>Pick Image</Text>
           </TouchableOpacity>
@@ -608,6 +611,12 @@ const styles = StyleSheet.create({
     position: 'relative',
     bottom: 0,
     alignItems: 'center',
+  },  datePickerContainer: {
+    position: 'absolute',
+    top: '30%',
+    left: '10%',
+    width: '80%',
+    zIndex: 1000,
   },
   dateInput: {
     height: 50,
@@ -620,13 +629,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  datePickerContainer: {
-    position: 'absolute',
-    top: '30%', // Adjust as necessary to center vertically
-    left: '10%', // Adjust as necessary to center horizontally
-    width: '80%', // Adjust width as needed
-    zIndex: 1000, // Ensure it's above other components
   },
 });
 
