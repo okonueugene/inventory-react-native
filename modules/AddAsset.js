@@ -11,7 +11,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import {launchCamera} from 'react-native-image-picker';
 import Geolocation from '@react-native-community/geolocation';
 import {Picker} from '@react-native-picker/picker';
 import axios from 'axios';
@@ -28,15 +28,10 @@ const AddAsset = () => {
   const [light, setLight] = useState(false);
   const device = useCameraDevice('back');
   const [showCamera, setShowCamera] = useState(false);
-  const [purchaseDate, setPurchaseDate] = useState(
-    dayjs().format('YYYY-MM-DD'),
-  );
-  const [warrantyDate, setWarrantyDate] = useState(
-    dayjs().format('YYYY-MM-DD'),
-  );
-  const [decommissionDate, setDecommissionDate] = useState(
-    dayjs().format('YYYY-MM-DD'),
-  );
+  const [purchaseDate, setPurchaseDate] = useState(null);
+  const [warrantyDate, setWarrantyDate] = useState(null);
+  const [decommissionDate, setDecommissionDate] = useState(null);
+  const [photo, setPhoto] = useState([]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [activeField, setActiveField] = useState('');
   const [assetDetails, setAssetDetails] = useState({
@@ -47,7 +42,6 @@ const AddAsset = () => {
     code: '',
     serial_number: '',
     status: 'available',
-    image: null,
     coordinates: null,
   });
 
@@ -85,7 +79,6 @@ const AddAsset = () => {
   }, []);
 
   const onCodeScanned = useCallback(codes => {
-    console.log('Scanned codes:', codes);
 
     // Check if `codes` is an array and has at least one item
     if (Array.isArray(codes) && codes.length > 0) {
@@ -109,7 +102,6 @@ const AddAsset = () => {
   const getCoordinates = async () => {
     Geolocation.getCurrentPosition(position => {
       const {latitude, longitude} = position.coords;
-      console.log('Coordinates:', latitude, longitude);
       setAssetDetails(prev => ({
         ...prev,
         coordinates: `${latitude},${longitude}`,
@@ -117,28 +109,18 @@ const AddAsset = () => {
     });
   };
 
-  const pickImage = async () => {
-    let result = await launchImageLibrary(
-      {
+  const takePhoto = async () => {
+    let result = await launchCamera({
         mediaType: 'photo',
         quality: 0.5,
-      },
-      response => {
-        console.log('Response = ', response);
-
-        if (response.didCancel) {
-          console.log('User cancelled image picker');
-        } else if (response.errorCode) {
-          console.log('ImagePicker Error: ', response.errorMessage);
-        } else {
-          setAssetDetails(prev => ({
-            ...prev,
-            image: response.uri,
-          }));
+        });
+    console.log(result);
+    if (!result.didCancel) {
+        setPhoto(result.assets[0].uri);
         }
-      },
-    );
-  };
+    };
+
+
   // 4. Initialize the code scanner for QR and barcode types
   const codeScanner = useCodeScanner({
     codeTypes: [
@@ -176,108 +158,80 @@ const AddAsset = () => {
       code,
       serial_number,
       description,
-
       status,
-
-      image,
-
       coordinates,
     } = assetDetails;
-
-
-
-   
-
-    // Validate form fields
-    if (!name || !category_id ||!code) {
-      switch (true) {
-        case !name:
-          Alert.alert('Validation Error', 'Name is required');
-          break;
-        case !category_id:
-          Alert.alert('Validation Error', 'Category is required');
-          break;
-        case !code:
-          Alert.alert('Validation Error', 'Code is required');
-          break;
-        default:
-          Alert.alert('Validation Error', 'All fields are required');
-      }
-      return;
-    }
-
 
 
     try {
       const token = await AsyncStorage.getItem('token');
       // Send data to your backend
-      const response = await fetch(
-        'https://test.tokenlessreport.optitech.co.ke/api/v1/assets',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name,
-            category_id,
-            employee_id,
-            description,
-            code,
-            serial_number,
-            status,
-            purchase_date: purchaseDate,
-            warranty_date: warrantyDate,
-            decommission_date: decommissionDate,
-            image,
-            coordinates,
-          }),
-        },
-      );
-      // Parse response JSON
-      const responseData = await response.json();
+      const formData = new FormData();
 
-      // Check if submission was successful
-      if (response.status === 201) {
-        // Display success message
-        Alert.alert('Asset Details Submitted', JSON.stringify(assetDetails));
+      console.log("formData before", formData);
+        formData.append('name', name);
+        formData.append('category_id', category_id);
+        formData.append('employee_id', employee_id);
+        formData.append('code', code);
+        formData.append('serial_number', serial_number);
+        formData.append('description', description);
+        formData.append('status', status);
+        formData.append('coordinates', coordinates);
 
-        // Reset form
+        if (photo) {
+            formData.append('image', {
+                uri: photo,
+                type: 'image/jpeg',
+                name: 'photo.jpg',
+            });
+            }
+        if (purchaseDate) {
+            formData.append('purchase_date', purchaseDate);
+            }
+        if (warrantyDate) {
+            formData.append('warranty_date', warrantyDate);
+            }
+        if (decommissionDate) {
+            formData.append('decommission_date', decommissionDate);
+            }
+        console.log("formData after", formData);
+
+        const response = await axios.post(
+            'https://test.tokenlessreport.optitech.co.ke/api/v1/assets',
+            formData,
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data',
+                },
+            },
+        );
+        console.log(response.data);
+        Alert.alert('Success', 'Asset added successfully');
+
+        // Clear form fields
         setAssetDetails({
-          name: '',
-          category_id: '',
-          employee_id: '',
-          description: '',
-          code: '',
-          serial_number: '',
-          status: 'available',
-          purchase_date: '',
-          warranty_date: '',
-          decommission_date: '',
-          image: null,
-          coordinates: null,
+            name: '',
+            category_id: '',
+            employee_id: '',
+            description: '',
+            code: '',
+            serial_number: '',
+            status: 'available',
+            coordinates: null,
         });
 
-        setQrValue('');
-        setShowCamera(false);
-      } else if (response.status === 400) {
-        // Display validation error messages
-        const errorMessages = Object.values(responseData).join('\n');
-        Alert.alert('Validation Errors', errorMessages);
-        console.log('Validation errors:', responseData);
-      } else {
-        // Display generic error message for other statuses
-        Alert.alert('Failed to submit asset details');
-        console.log('Submission failed:', responseData);
-        console.log('Response status:', response.status);
-      }
+        setPhoto([]);
+        setPurchaseDate(null);
+        setWarrantyDate(null);
+        setDecommissionDate(null);
+
     } catch (error) {
-      // Display network or other error
-      Alert.alert('Network error', 'Failed to connect to the server');
-      console.log('Network error:', error);
-      console.log('Response status:', response.status);
-    }
-  };
+        console.error(error);
+        Alert.alert('Error', 'An error occurred. Please try again');
+        }
+    };
+   
 
   //Fetch categories
   const fetchCategories = async () => {
@@ -285,7 +239,6 @@ const AddAsset = () => {
       'https://test.tokenlessreport.optitech.co.ke/api/v1/categories',
     );
     const data = response.data;
-    console.log(data);
     setCategories(data);
   };
 
@@ -295,7 +248,6 @@ const AddAsset = () => {
       'https://test.tokenlessreport.optitech.co.ke/api/v1/employees',
     );
     const data = response.data;
-    console.log(data);
     setEmployees(data);
   };
 
@@ -357,7 +309,7 @@ const AddAsset = () => {
           <TouchableOpacity
             onPress={() => setShowCamera(!showCamera)}
             style={styles.toggleButton}>
-            <Text style={(style = {color: 'white', textAlign: 'center'})}>
+            <Text style={({color: 'white', textAlign: 'center'})}>
               {showCamera ? 'Hide Scanner' : 'Scan Barcode/QR Code'}
             </Text>
           </TouchableOpacity>
@@ -449,19 +401,25 @@ const AddAsset = () => {
          <TouchableOpacity
           onPress={() => openDatePicker('purchase')}
           style={styles.dateInput}>
-          <Text style={styles.buttonText}>Select Purchase Date</Text>
+          <Text style={styles.datePickerText}>
+          {purchaseDate ? `${purchaseDate}` : 'Select Purchase Date'}
+            </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => openDatePicker('warranty')}
           style={styles.dateInput}>
-          <Text style={styles.buttonText}>Select Warranty Date</Text>
+          <Text style={styles.datePickerText}>
+            {warrantyDate ? `${warrantyDate}` : 'Select Warranty Date'}
+            </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => openDatePicker('decommission')}
           style={styles.dateInput}>
-          <Text style={styles.buttonText}>Select Decommission Date</Text>
+          <Text style={styles.datePickerText}>
+            {decommissionDate ? `${decommissionDate}` : 'Select Decommission Date'}
+            </Text>
         </TouchableOpacity>
 
         {/* Show DateTimePicker */}
@@ -478,14 +436,18 @@ const AddAsset = () => {
               }
               onChange={params => handleDateChange(params.date)}
               calendarTextStyle={{color: 'black'}}
-              headerTextContainerStyle={{color: 'black'}}
-              headerStyle={{backgroundColor: 'white'}}
-              headerTextColor={'black'}
-            />
+              headerTextStyle={{color: 'black'}}
+              headerButtonSize={20}
+            //   todayContainerStyle={{color: 'black'}}
+            //   monthContainerStyle={{color: 'black'}}
+            //   yearContainerStyle={{color: 'black'}}
+            //   weekDaysContainerStyle={{color: 'black'}}
+              weekDaysTextStyle={{color: 'black'}}
+                          />
           </View>
         )}
 
-          <TouchableOpacity onPress={pickImage} style={styles.submitButton}>
+          <TouchableOpacity onPress={takePhoto} style={styles.submitButton}>
             <Text style={styles.buttonText}>Pick Image</Text>
           </TouchableOpacity>
 
@@ -616,6 +578,13 @@ const styles = StyleSheet.create({
     top: '30%',
     left: '10%',
     width: '80%',
+    flex: 1,
+    backgroundColor: '#f9fcfc',
+    borderRadius: 10,
+    padding: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'gray',
     zIndex: 1000,
   },
   dateInput: {
@@ -628,7 +597,10 @@ const styles = StyleSheet.create({
     width: '90%',
     alignSelf: 'center',
     justifyContent: 'center',
-    alignItems: 'center',
+  },
+  datePickerText: {
+    color: 'gray',
+    fontSize: 15,
   },
 });
 

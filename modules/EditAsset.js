@@ -1,4 +1,4 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,13 +11,15 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native';
-import {launchCamera, launchImageLibrary} from 'react-native-image-picker';
+import { launchCamera } from 'react-native-image-picker';
 import Geolocation from '@react-native-community/geolocation';
-import {Picker} from '@react-native-picker/picker';
+import { Picker } from '@react-native-picker/picker';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {useCameraDevice, useCodeScanner} from 'react-native-vision-camera';
-import {Camera} from 'react-native-vision-camera';
+import { useCameraDevice, useCodeScanner } from 'react-native-vision-camera';
+import { Camera } from 'react-native-vision-camera';
+import DateTimePicker from 'react-native-ui-datepicker';
+import dayjs from 'dayjs';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
@@ -26,6 +28,12 @@ const EditAsset = () => {
   const [scanned, setScanned] = useState(false);
   const [light, setLight] = useState(false);
   const device = useCameraDevice('back');
+  const [purchaseDate, setPurchaseDate] = useState(null);
+  const [warrantyDate, setWarrantyDate] = useState(null);
+  const [decommissionDate, setDecommissionDate] = useState(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [photo, setPhoto] = useState([]);
+  const [activeField, setActiveField] = useState('');
   const [assetDetails, setAssetDetails] = useState({
     name: '',
     category_id: '',
@@ -33,14 +41,12 @@ const EditAsset = () => {
     description: '',
     code: '',
     serial_number: '',
-    status: 'available',
+    status: '',
     purchase_date: '',
     warranty_date: '',
     decommission_date: '',
-    image: null,
-    coordinates: null,
   });
-  
+
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
@@ -51,11 +57,11 @@ const EditAsset = () => {
         ]);
         if (
           granted['android.permission.CAMERA'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
+          PermissionsAndroid.RESULTS.GRANTED &&
           granted['android.permission.ACCESS_FINE_LOCATION'] ===
-            PermissionsAndroid.RESULTS.GRANTED &&
+          PermissionsAndroid.RESULTS.GRANTED &&
           granted['android.permission.READ_EXTERNAL_STORAGE'] ===
-            PermissionsAndroid.RESULTS.GRANTED
+          PermissionsAndroid.RESULTS.GRANTED
         ) {
           console.log('Permissions granted');
         } else {
@@ -66,8 +72,8 @@ const EditAsset = () => {
       }
     }
   };
-  
-  
+
+
 
   useEffect(() => {
     requestPermissions();
@@ -75,23 +81,23 @@ const EditAsset = () => {
 
   const onCodeScanned = useCallback(codes => {
     console.log('Scanned codes:', codes);
-   // Check if `codes` is an array and has at least one item
-   if (Array.isArray(codes) && codes.length > 0) {
-    const value = codes[0]?.value; // Access the `value` of the first code
+    // Check if `codes` is an array and has at least one item
+    if (Array.isArray(codes) && codes.length > 0) {
+      const value = codes[0]?.value; // Access the `value` of the first code
 
-    if (value) {
-      Vibration.vibrate(50);
-      setScanned(true);
-      getCoordinates();
-      getAssetDetails(value);
+      if (value) {
+        Vibration.vibrate(50);
+        setScanned(true);
+        getCoordinates();
+        getAssetDetails(value);
 
+      }
     }
-  }
   }, []);
-  
+
   const getCoordinates = async () => {
     Geolocation.getCurrentPosition(position => {
-      const {latitude, longitude} = position.coords;
+      const { latitude, longitude } = position.coords;
       console.log('Coordinates:', latitude, longitude);
       setAssetDetails(prev => ({
         ...prev,
@@ -100,28 +106,18 @@ const EditAsset = () => {
     });
   };
 
-  const pickImage = async () => {
-    let result = await launchImageLibrary(
-      {
+
+  const takePhoto = async () => {
+    let result = await launchCamera({
         mediaType: 'photo',
         quality: 0.5,
-      },
-      response => {
-        console.log('Response = ', response);
-
-        if (response.didCancel) {
-          console.log('User cancelled image picker');
-        } else if (response.errorCode) {
-          console.log('ImagePicker Error: ', response.errorMessage);
-        } else {
-          setAssetDetails(prev => ({
-            ...prev,
-            image: response.uri,
-          }));
+        });
+    console.log(result);
+    if (!result.didCancel) {
+        setPhoto(result.assets[0].uri);
         }
-      },
-    );
-  };
+    };
+
   // 4. Initialize the code scanner for QR and barcode types
   const codeScanner = useCodeScanner({
     codeTypes: [
@@ -172,24 +168,77 @@ const EditAsset = () => {
   const updateAsset = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      // Send data to your backend
+      const formData = new FormData();
+
+      console.log("formData before", formData);
+      if (assetDetails.serial_number === '' || assetDetails.serial_number === null) {
+        formData.append('serial_number', assetDetails.serial_number);
+      }
+      if (assetDetails.purchase_date === '' || assetDetails.purchase_date === null) {
+        formData.append('purchase_date', purchaseDate);
+      }
+      if (assetDetails.warranty_date == '' || assetDetails.warranty_date === null) {
+        formData.append('warranty_date', assetDetails.warranty_date);
+        if (assetDetails.decommission_date === '' || assetDetails.decommission_date === null) {
+          formData.append('decommission_date', assetDetails.decommission_date);
+        }
+      }
+      if (assetDetails.name === '' || assetDetails.name === null) {
+        formData.append('image', {
+          uri: photo,
+          type: 'image/jpeg',
+          name: 'image.jpg',
+        }
+        );
+      }
+
+      //coordinates
+        if (assetDetails.coordinates === '' || assetDetails.coordinates === null) {
+            formData.append('coordinates', assetDetails.coordinates);
+        }
+        
+      console.log("formData after", formData);
       const response = await axios.put(
         'https://test.tokenlessreport.optitech.co.ke/api/v1/assets/' + assetDetails.code,
-        assetDetails,
         {
           headers: {
+            'Content-Type': 'multipart/form-data',
             Authorization: `Bearer ${token}`,
           },
+            formData,
         },
       );
       console.log('Asset updated:', response.data);
+      Alert.alert('Asset updated successfully');
     } catch (error) {
       console.error(error);
+      Alert.alert('An error occurred. Please try again');
     }
-  }
+  };
 
-  if(!scanned && device) {
+
+
+  const handleDateChange = date => {
+    if (activeField === 'purchase') {
+      setPurchaseDate(dayjs(date).format('YYYY-MM-DD'));
+    } else if (activeField === 'warranty') {
+      setWarrantyDate(dayjs(date).format('YYYY-MM-DD'));
+    } else if (activeField === 'decommission') {
+      setDecommissionDate(dayjs(date).format('YYYY-MM-DD'));
+    }
+    setShowDatePicker(false); // Close DatePicker after selection
+  };
+
+  const openDatePicker = field => {
+    setActiveField(field);
+    setShowDatePicker(true); // Open DatePicker
+  };
+
+
+  if (!scanned && device) {
     return (
-        <Camera
+      <Camera
         style={StyleSheet.absoluteFill}
         device={device}
         isActive={true}
@@ -203,15 +252,15 @@ const EditAsset = () => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-      <Header />
+        <Header />
       </View>
       {/* Title */}
       <Text style={styles.title}>Edit Asset</Text>
       <View
-        style={[styles.formContainer , {flex: 1}]}>
+        style={[styles.formContainer, { flex: 1 }]}>
         <ScrollView
           style={styles.formContainer}
-          contentContainerStyle={{flexGrow: 1, justifyContent: 'center', paddingBottom: 20}}>
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 20 }}>
           <TextInput
             placeholder="Name"
             style={styles.input}
@@ -220,7 +269,7 @@ const EditAsset = () => {
             onChangeText={text => handleInputChange('name', text)}
             placeholderTextColor={'gray'}
           />
-  
+
           <TextInput
             placeholder="Description"
             value={assetDetails.description || ''}
@@ -243,29 +292,61 @@ const EditAsset = () => {
             placeholderTextColor={'gray'}
             editable={assetDetails.serial_number ? false : true}
           />
-          <TextInput
-            placeholder="Purchase Date (YYYY-MM-DD)"
-            value={assetDetails.purchase_date || ''}
-            style={styles.input}
-            onChangeText={text => handleInputChange('purchase_date', text)}
-            placeholderTextColor={'gray'}
-            editable={assetDetails.purchase_date ? false : true}
-          />
-          <TextInput
-            placeholder="Warranty Date (YYYY-MM-DD)"
-            value={assetDetails.warranty_date || ''}
-            style={styles.input}
-            onChangeText={text => handleInputChange('warranty_date', text)}
-            placeholderTextColor={'gray'}
-          />
-          <TextInput
-            placeholder="Decommission Date (YYYY-MM-DD)"
-            value={assetDetails.decommission_date || ''}
-            style={styles.input}
-            onChangeText={text => handleInputChange('decommission_date', text)}
-            placeholderTextColor={'gray'}
-          />
-          <TouchableOpacity onPress={pickImage} style={styles.submitButton}>
+          <TouchableOpacity
+            onPress={() => openDatePicker('purchase')}
+            style={styles.dateInput}>
+            <Text style={styles.datePickerText}
+            disabled={assetDetails.purchase_date ? true : false}
+            >
+              {assetDetails.purchase_date ? `${assetDetails.purchase_date}` : 'Select Purchase Date'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openDatePicker('warranty')}
+            style={styles.dateInput}>
+            <Text style={styles.datePickerText}
+            disabled={assetDetails.warranty_date ? true : false}
+            >
+              {assetDetails.warranty_date ? `${assetDetails.warranty_date}` : 'Select Warranty Date'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => openDatePicker('decommission')}
+            style={styles.dateInput}>
+            <Text style={styles.datePickerText}
+            disabled={assetDetails.decommission_date ? true : false}
+            >
+              {assetDetails.decommission_date ? `${assetDetails.decommission_date}` : 'Select Decommission Date'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Show DateTimePicker */}
+          {showDatePicker && (
+            <View style={styles.datePickerContainer}>
+              <DateTimePicker
+                mode="single"
+                date={
+                  activeField === 'purchase'
+                    ? purchaseDate
+                    : activeField === 'warranty'
+                      ? warrantyDate
+                      : decommissionDate
+                }
+                onChange={params => handleDateChange(params.date)}
+                calendarTextStyle={{ color: 'black' }}
+                headerTextStyle={{ color: 'black' }}
+                headerButtonSize={20}
+                //   todayContainerStyle={{color: 'black'}}
+                //   monthContainerStyle={{color: 'black'}}
+                //   yearContainerStyle={{color: 'black'}}
+                //   weekDaysContainerStyle={{color: 'black'}}
+                weekDaysTextStyle={{ color: 'black' }}
+              />
+            </View>
+          )}
+          <TouchableOpacity onPress={takePhoto} style={styles.submitButton}>
             <Text style={styles.buttonText}>Pick Image</Text>
           </TouchableOpacity>
 
@@ -276,11 +357,12 @@ const EditAsset = () => {
         {/* Footer */}
         <View style={styles.footer}>
           <Footer />
-          </View>
+        </View>
       </View>
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -391,7 +473,36 @@ const styles = StyleSheet.create({
     position: 'relative',
     bottom: 0,
     alignItems: 'center',
+  },  datePickerContainer: {
+    position: 'absolute',
+    top: '30%',
+    left: '10%',
+    width: '80%',
+    flex: 1,
+    backgroundColor: '#f9fcfc',
+    borderRadius: 10,
+    padding: 10,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'gray',
+    zIndex: 100,
+  },
+  dateInput: {
+    height: 50,
+    borderColor: 'gray',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    width: '90%',
+    alignSelf: 'center',
+    justifyContent: 'center',
+  },
+  datePickerText: {
+    color: 'gray',
+    fontSize: 15,
   },
 });
+
 
 export default EditAsset;
