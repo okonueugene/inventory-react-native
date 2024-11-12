@@ -21,7 +21,7 @@ import {Camera} from 'react-native-vision-camera';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 
-const ViewAsset = () => {
+const AuditAsset = () => {
   const [qrValue, setQrValue] = useState('');
   const [light, setLight] = useState(false);
   const device = useCameraDevice('back');
@@ -564,4 +564,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ViewAsset;
+export default AuditAsset;

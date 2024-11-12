@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 
 const data = [
   { id: '1', title: 'Add Asset', icon: 'add-circle-outline', link: 'AddAsset' },
-    { id: '2', title: 'View Assets', icon: 'eye-outline', link: 'ViewAsset' },
+    { id: '2', title: 'Audit Assets', icon: 'search-outline', link: 'AuditAsset' },
     { id: '3', title: 'Edit Assets', icon: 'create-outline', link: 'EditAsset' },
 ];
 

@@ -1,7 +1,7 @@
 import React, { useContext, useEffect } from 'react';
 import Preloader from './components/Preloader';
 import { NavigationContainer } from '@react-navigation/native';
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Platform, PermissionsAndroid, Alert } from 'react-native';
 import AuthStack from './navigation/AuthStack';
 import AppStack from './navigation/AppStack';
 import { MainContext, MainProvider } from "./storage/MainContext";
@@ -20,6 +20,32 @@ const AppContainer = () => {
 
   const { state, dispatch } = useContext(MainContext);
 
+  const requestPermissions = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        ]);
+        if (
+          granted['android.permission.CAMERA'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          granted['android.permission.ACCESS_FINE_LOCATION'] ===
+            PermissionsAndroid.RESULTS.GRANTED &&
+          granted['android.permission.READ_EXTERNAL_STORAGE'] ===
+            PermissionsAndroid.RESULTS.GRANTED
+        ) {
+          console.log('Permissions granted');
+        } else {
+          Alert.alert('Permissions denied');
+        }
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+  };
+
   const checkLogin = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
@@ -36,6 +62,7 @@ const AppContainer = () => {
 
   useEffect(() => {
     checkLogin();
+    requestPermissions();
   }, []);
 
   if (state.isLoading) {
@@ -48,7 +75,7 @@ const AppContainer = () => {
 
   return (
     <NavigationContainer>
-      <AppStack /> 
+      {state.isAuthenticated ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );
 };
