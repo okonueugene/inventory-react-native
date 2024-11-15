@@ -24,15 +24,15 @@ import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ApiManager from '../api/ApiManager';
 import { useNavigation } from '@react-navigation/native';
-
-
+import Preloader from '../components/Preloader';
+import Toast from 'react-native-toast-message';
 
 const EditAsset = () => {
 
     const navigation = useNavigation();
-
+    const [isLoading, setIsLoading] = useState(false);
     const [scanned, setScanned] = useState(false);
-    const [light, setLight] = useState(false);
+    const [torch, setTorch] = useState(false);
     const device = useCameraDevice('back');
     const [purchaseDate, setPurchaseDate] = useState(null);
     const [warrantyDate, setWarrantyDate] = useState(null);
@@ -139,6 +139,9 @@ const EditAsset = () => {
 
     const getAssetDetails = async (code) => {
         try {
+            // Set loading state
+            setIsLoading(true);
+            // Get token from AsyncStorage
             const token = await AsyncStorage.getItem('token');
             const response = await ApiManager.get(`/assets/${code}`, {
                 headers: {
@@ -146,35 +149,54 @@ const EditAsset = () => {
                 },
             });
             setAssetDetails(response.data.data);
+            setIsLoading(false);
         } catch (error) {
             console.error(error);
-            console.log(error.response.status);
+            console.log(error.response.data.message);
             if (error.response.status === 404) {
                 navigation.navigate('Dashboard');
-                Alert.alert('Asset not found');
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'Please try again',
+                    visibilityTime: 4000,
+                    autoHide: true,
+                });
+
 
             }
+            setIsLoading(false);
         }
     };
 
     const updateAsset = async () => {
         try {
+            console.log('Warannty Date:', warrantyDate);
+            // Set loading state
+            setIsLoading(true);
+            // Get token from AsyncStorage
             const token = await AsyncStorage.getItem('token');
 
             const formData = {};
 
-            // Add fields if they are non-empty
-            formData.serial_number = assetDetails.serial_number;
+            formData.name = assetDetails.name;
+
             formData.description = assetDetails.description;
-            if (purchaseDate) formData.purchase_date = purchaseDate;
-            if (warrantyDate) formData.warranty_date = warrantyDate;
-            if (decommissionDate) formData.decommission_date = decommissionDate;
 
-            // Add coordinates
+            formData.serial_number = assetDetails.serial_number;
+
+            formData.purchase_date = assetDetails.purchase_date ? assetDetails.purchase_date : purchaseDate;
+
+            formData.warranty_date = assetDetails.warranty_date ? assetDetails.warranty_date : warrantyDate;
+
+            formData.decommission_date = assetDetails.decommission_date ? assetDetails.decommission_date : decommissionDate;
+
             formData.coordinates = coordinates;
-
-                    const response = await axios.put(
-                `https://test.tokenlessreport.optitech.co.ke/api/v1/assets/${assetDetails.code}`,
+            
+            console.log('Form Data:', formData);
+           
+            const response = await axios.put(
+                `https://test.tokenlessreport.optitech.co.ke/api/v1/assets/${assetDetails.id}`,
                 {
                     ...formData,
                 },
@@ -185,7 +207,38 @@ const EditAsset = () => {
                 },
             );
             console.log('Asset updated:', response.data);
-            Alert.alert('Asset updated successfully');
+            // Reset form fields
+            setAssetDetails({
+                name: '',
+                category_id: '',
+                employee_id: '',
+                description: '',
+                code: '',
+                serial_number: '',
+                status: '',
+                purchase_date: '',
+                warranty_date: '',
+                decommission_date: '',
+            });
+            // Reset date fields
+            setPurchaseDate(null);
+            setWarrantyDate(null);
+            setDecommissionDate(null);
+            // Reset coordinates
+            setCoordinates('');
+            // Reset loading state
+            setIsLoading(false);
+            // Navigate to the dashboard
+            navigation.navigate('Dashboard');
+            // Show success message
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: response.data.msg,
+                visibilityTime: 3000,
+                autoHide: true,
+            });
+
         }
         catch (error) {
             if (error.response) {
@@ -204,11 +257,18 @@ const EditAsset = () => {
                 console.log('Error', error.message);
             }
             console.log(error.config);
+            setIsLoading(false);
+
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'An error occurred. Please try again',
+                visibilityTime: 4000,
+                autoHide: true,
+            });
+
         }
     };
-
-
-
 
     const handleDateChange = date => {
         if (activeField === 'purchase') {
@@ -218,14 +278,21 @@ const EditAsset = () => {
         } else if (activeField === 'decommission') {
             setDecommissionDate(dayjs(date).format('YYYY-MM-DD'));
         }
-        setShowDatePicker(false); // Close DatePicker after selection
+        setShowDatePicker(false);
     };
 
     const openDatePicker = field => {
         setActiveField(field);
-        setShowDatePicker(true); // Open DatePicker
+        setShowDatePicker(true);
     };
 
+    if (isLoading) {
+        return (
+            <View style={styles.container}>
+                <Preloader />
+            </View>
+        );
+    }
 
     if (!scanned && device) {
         return (
@@ -236,7 +303,7 @@ const EditAsset = () => {
                     device={device}
                     isActive={true}
                     codeScanner={codeScanner}
-                    light={light}
+                    torch={torch ? 'on' : 'off'}
                     enableZoomGesture={true}
                 />
                 <View style={styles.focusFrame}>
@@ -244,6 +311,9 @@ const EditAsset = () => {
                         Align the barcode within the frame to scan
                     </Text>
                 </View>
+                <TouchableOpacity style={styles.toggleTorchButton} onPress={() => setTorch(!torch)}>
+                    <Text style={styles.buttonText}>Toggle Torch</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -337,15 +407,11 @@ const EditAsset = () => {
                                 calendarTextStyle={{ color: 'black' }}
                                 headerTextStyle={{ color: 'black' }}
                                 headerButtonSize={20}
-                                //   todayContainerStyle={{color: 'black'}}
-                                //   monthContainerStyle={{color: 'black'}}
-                                //   yearContainerStyle={{color: 'black'}}
-                                //   weekDaysContainerStyle={{color: 'black'}}
                                 weekDaysTextStyle={{ color: 'black' }}
                             />
                         </View>
                     )}
-               
+
                     <TouchableOpacity onPress={updateAsset} style={styles.submitButton}>
                         <Text style={styles.buttonText}>Submit Asset Details</Text>
                     </TouchableOpacity>
@@ -497,6 +563,13 @@ const styles = StyleSheet.create({
     datePickerText: {
         color: 'gray',
         fontSize: 15,
+    },
+    toggleTorchButton: {
+        position: 'absolute',
+        bottom: 100,
+        padding: 10,
+        backgroundColor: '#4CAF50',
+        borderRadius: 5,
     },
 });
 

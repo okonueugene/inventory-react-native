@@ -5,7 +5,7 @@ const Footer = () => {
     return (
         <View style={styles.container}>
           <Text style={styles.footerText}>
-            © 2021 All rights reserved.
+            © {new Date().getFullYear()} Asset Tagging
             </Text>
         </View>
     );

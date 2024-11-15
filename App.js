@@ -6,11 +6,14 @@ import AuthStack from './navigation/AuthStack';
 import AppStack from './navigation/AppStack';
 import { MainContext, MainProvider } from "./storage/MainContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from 'react-native-toast-message';
+
 
 const App = () => {
   return (
     <MainProvider>
       <AppContainer />
+      <Toast />
     </MainProvider>
   );
 

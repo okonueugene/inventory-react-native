@@ -23,10 +23,14 @@ import dayjs from 'dayjs';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import ApiManager from '../api/ApiManager';
+import Toast from 'react-native-toast-message';
+import { useNavigation } from '@react-navigation/native';
+import Preloader from '../components/Preloader';
+
 
 const AddAsset = () => {
     const [qrValue, setQrValue] = useState('');
-    const [light, setLight] = useState(false);
+    const [torch, setTorch] = useState(false);
     const device = useCameraDevice('back');
     const [showCamera, setShowCamera] = useState(false);
     const [purchaseDate, setPurchaseDate] = useState(null);
@@ -45,9 +49,11 @@ const AddAsset = () => {
         status: 1,
         coordinates: null,
     });
+    const navigation = useNavigation();
 
-    const [categories, setCategories] = useState([]); // Example categories
-    const [employees, setEmployees] = useState([]); // Example employees
+    const [categories, setCategories] = useState([]);
+    const [employees, setEmployees] = useState([]); 
+    const[isLoading, setIsLoading] = useState(false);
 
     const requestPermissions = async () => {
         if (Platform.OS === 'android') {
@@ -163,8 +169,39 @@ const AddAsset = () => {
             coordinates,
         } = assetDetails;
 
+        // Validate form fields
+        if (!name )
+            return Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Name is required',
+                visibilityTime: 2000,
+                autoHide: true,
+            });
+        if (!category_id)
+            return Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Category is required',
+                visibilityTime: 4000,
+                autoHide: true,
+            });
+
+        if (!code)
+            return Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Code is required',
+                visibilityTime: 4000,
+                autoHide: true,
+            });
+            
+
 
         try {
+            //set loading to true
+            setIsLoading(true);
+            // Get token from AsyncStorage
             const token = await AsyncStorage.getItem('token');
             // Send data to your backend
             const formData = new FormData();
@@ -208,9 +245,10 @@ const AddAsset = () => {
                 },
             );
 
-            console.log(response.data);
-            Alert.alert('Success', 'Asset added successfully');
+            //set loading to false
+            setIsLoading(false);
 
+            console.log(response.data);
             // Clear form fields
             setAssetDetails({
                 name: '',
@@ -227,29 +265,37 @@ const AddAsset = () => {
             setPurchaseDate(null);
             setWarrantyDate(null);
             setDecommissionDate(null);
+            setQrValue('');
+            setShowCamera(false);           
+
+            // Navigate to the dashboard
+            navigation.navigate('Dashboard');
+
+            // Show success message
+            Toast.show({
+                type: 'success',
+                text1: 'Success',
+                text2: 'Asset added successfully',
+
+            });
+
         }
         catch (error) {
-            if (error.response) {
-                // The request was made and the server responded with a status code
-                // that falls out of the range of 2xx
-                console.log(error.response.data);
-                console.log(error.response.status);
-                console.log(error.response.headers);
-            } else if (error.request) {
-                // The request was made but no response was received
-                // `error.request` is an instance of XMLHttpRequest in the browser and an instance of
-                // http.ClientRequest in node.js
-                console.log(error.request);
-            } else {
-                // Something happened in setting up the request that triggered an Error
-                console.log('Error', error.message);
+            console.log(error.response.status);
+            if (error.response.status === 400) {
+                // Show error message
+                Toast.show({
+                    type: 'error',
+                    text1: 'Error',
+                    text2: 'This Tag has already been used',
+                });
             }
-            console.log(error.config);
+
         }
+
+        //set loading to false
+        setIsLoading(false);
     };
-
-
-
     //Fetch categories
     const fetchCategories = async () => {
         const token = await AsyncStorage.getItem('token');
@@ -295,6 +341,38 @@ const AddAsset = () => {
         setActiveField(field);
         setShowDatePicker(true); // Open DatePicker
     };
+    if (showCamera && device) {
+        return (
+            <View style={styles.container}>
+
+                <Camera
+                    style={StyleSheet.absoluteFill}
+                    device={device}
+                    isActive={true}
+                    codeScanner={codeScanner}
+                    torch={torch ? 'on' : 'off'}
+                    enableZoomGesture={true}
+                />
+                <View style={styles.focusFrame}>
+                    <Text style={styles.instructions}>
+                        Align the barcode within the frame to scan
+                    </Text>
+                </View>
+                <TouchableOpacity style={styles.toggleTorchButton} onPress={() => setTorch(!torch)}>
+                    <Text style={styles.buttonText}>Toggle Torch</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
+
+    if(isLoading){
+        return (
+            <View style={styles.preloaderContainer}>
+                <Preloader />
+            </View>
+        );
+    }
+    
 
     return (
         <View style={styles.container}>
@@ -304,23 +382,6 @@ const AddAsset = () => {
             </View>
             {/* Title */}
             <Text style={styles.title}>Add New Asset</Text>
-            {/* Button to show/hide CameraView */}
-            {showCamera && device && (
-                <Camera
-                    style={StyleSheet.absoluteFill}
-                    device={device}
-                    isActive={true}
-                    codeScanner={codeScanner}
-                    light={light}
-                    enableZoomGesture={true}
-                />
-            )}
-
-            <View style={styles.focusFrame}>
-                <Text style={styles.instructions}>
-                    Align the barcode within the frame to scan
-                </Text>
-            </View>
             <View
                 style={[styles.formContainer, showCamera && styles.dimmedBackground]}>
                 <ScrollView
@@ -462,10 +523,6 @@ const AddAsset = () => {
                                 calendarTextStyle={{ color: 'black' }}
                                 headerTextStyle={{ color: 'black' }}
                                 headerButtonSize={20}
-                                //   todayContainerStyle={{color: 'black'}}
-                                //   monthContainerStyle={{color: 'black'}}
-                                //   yearContainerStyle={{color: 'black'}}
-                                //   weekDaysContainerStyle={{color: 'black'}}
                                 weekDaysTextStyle={{ color: 'black' }}
                             />
                         </View>
@@ -625,6 +682,13 @@ const styles = StyleSheet.create({
     datePickerText: {
         color: 'gray',
         fontSize: 15,
+    },
+    toggleTorchButton: {
+        position: 'absolute',
+        bottom: 100,
+        padding: 10,
+        backgroundColor: '#4CAF50',
+        borderRadius: 5,
     },
 });
 
